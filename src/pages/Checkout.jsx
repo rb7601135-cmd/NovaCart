@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import confetti from 'canvas-confetti';
 import { Lock, ArrowRight } from 'lucide-react';
@@ -15,29 +15,48 @@ export const Checkout = () => {
 
 
   // Form State with user defaults
+  const defaultAddress = user?.addresses?.find((a) => a.isDefault) || user?.addresses?.[0] || {};
   const [formData, setFormData] = useState({
-    fullName: user?.name || 'Alex Morgan',
-    email: user?.email || 'alex.morgan@example.com',
-    phone: user?.phone || '+1 (555) 392-8472',
-    address: '742 Evergreen Terrace, Suite 4B',
-    city: 'San Francisco',
-    state: 'CA',
-    postalCode: '94107',
-    country: 'United States'
+    fullName: user?.name || '',
+    email: user?.email || '',
+    phone: user?.phone || '',
+    address: defaultAddress.street || '',
+    city: defaultAddress.city || '',
+    state: defaultAddress.state || '',
+    postalCode: defaultAddress.postalCode || '',
+    country: defaultAddress.country || 'United States'
   });
+
+  // Sync formData if user signs in or profile loads
+  useEffect(() => {
+    if (user) {
+      const addr = user?.addresses?.find((a) => a.isDefault) || user?.addresses?.[0] || {};
+      setFormData((prev) => ({
+        ...prev,
+        fullName: prev.fullName || user.name || '',
+        email: prev.email || user.email || '',
+        phone: prev.phone || user.phone || '',
+        address: prev.address || addr.street || '',
+        city: prev.city || addr.city || '',
+        state: prev.state || addr.state || '',
+        postalCode: prev.postalCode || addr.postalCode || '',
+        country: prev.country || addr.country || 'United States'
+      }));
+    }
+  }, [user]);
 
   const [shippingMethod, setShippingMethod] = useState('standard');
   const [paymentMethod, setPaymentMethod] = useState('credit-card');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState({});
 
-  // Credit card mockup details
-  const cardData = {
-    number: '4242 •••• •••• 4242',
-    name: user?.name || 'Alex Morgan',
-    expiry: '12/28',
-    cvc: '883'
-  };
+  // Payment card state
+  const [paymentDetails, setPaymentDetails] = useState({
+    cardNumber: '',
+    cardholderName: user?.name || '',
+    expiry: '',
+    cvc: ''
+  });
 
   // Calculate adjusted shipping based on method
   const shippingFee =
@@ -176,6 +195,23 @@ export const Checkout = () => {
           <div className="lg:col-span-7 space-y-8">
             <form onSubmit={handlePlaceOrder} id="checkout-form" className="space-y-8">
               
+              {/* Guest Sign-in Hint */}
+              {!user && (
+                <div className="p-4 bg-indigo-50/80 border border-indigo-100 rounded-3xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-indigo-950">
+                  <div>
+                    <span className="font-bold block text-sm text-indigo-900">Checking out as guest?</span>
+                    <span className="text-indigo-700">Have an account? Sign in to use saved addresses and earn VIP perks.</span>
+                  </div>
+                  <Link
+                    to="/login"
+                    state={{ from: { pathname: '/checkout' } }}
+                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition-colors shrink-0"
+                  >
+                    Sign In Now
+                  </Link>
+                </div>
+              )}
+
               {/* Section 1: Customer Contact & Shipping Information */}
               <div className="bg-white rounded-3xl p-6 sm:p-8 border border-neutral-200/80 shadow-xs space-y-5">
                 <div className="flex items-center gap-2.5 pb-4 border-b border-neutral-100">
@@ -404,41 +440,47 @@ export const Checkout = () => {
                   ))}
                 </div>
 
-                {/* Credit Card Details simulation */}
+                {/* Credit Card Details */}
                 {paymentMethod === 'credit-card' && (
                   <div className="p-4 bg-neutral-50 rounded-2xl border border-neutral-200/80 space-y-3">
                     <div>
                       <label className="text-[11px] font-semibold text-neutral-600 block mb-1">
-                        Card Number (Demo)
+                        Card Number
                       </label>
                       <input
                         type="text"
-                        value={cardData.number}
-                        readOnly
-                        className="w-full px-3 py-2 bg-white rounded-xl border border-neutral-200 text-xs font-mono"
+                        value={paymentDetails.cardNumber}
+                        onChange={(e) => setPaymentDetails({ ...paymentDetails, cardNumber: e.target.value })}
+                        placeholder="•••• •••• •••• ••••"
+                        maxLength={19}
+                        className="w-full px-3.5 py-2.5 bg-white rounded-xl border border-neutral-200 text-xs font-mono focus:outline-hidden focus:border-indigo-500"
                       />
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="text-[11px] font-semibold text-neutral-600 block mb-1">
-                          Expiry
+                          Expiry Date
                         </label>
                         <input
                           type="text"
-                          value={cardData.expiry}
-                          readOnly
-                          className="w-full px-3 py-2 bg-white rounded-xl border border-neutral-200 text-xs font-mono"
+                          value={paymentDetails.expiry}
+                          onChange={(e) => setPaymentDetails({ ...paymentDetails, expiry: e.target.value })}
+                          placeholder="MM / YY"
+                          maxLength={5}
+                          className="w-full px-3.5 py-2.5 bg-white rounded-xl border border-neutral-200 text-xs font-mono focus:outline-hidden focus:border-indigo-500"
                         />
                       </div>
                       <div>
                         <label className="text-[11px] font-semibold text-neutral-600 block mb-1">
-                          CVC
+                          Security Code (CVC)
                         </label>
                         <input
-                          type="text"
-                          value={cardData.cvc}
-                          readOnly
-                          className="w-full px-3 py-2 bg-white rounded-xl border border-neutral-200 text-xs font-mono"
+                          type="password"
+                          value={paymentDetails.cvc}
+                          onChange={(e) => setPaymentDetails({ ...paymentDetails, cvc: e.target.value })}
+                          placeholder="CVC"
+                          maxLength={4}
+                          className="w-full px-3.5 py-2.5 bg-white rounded-xl border border-neutral-200 text-xs font-mono focus:outline-hidden focus:border-indigo-500"
                         />
                       </div>
                     </div>

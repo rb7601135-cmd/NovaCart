@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Lock,
@@ -8,27 +8,38 @@ import {
   EyeOff,
   ShoppingBag,
   ArrowRight,
-  Sparkles
+  ShieldCheck,
+  AlertCircle,
+  Truck,
+  RotateCcw,
+  Star
 } from 'lucide-react';
 
 import { useAuth } from '../hooks/useAuth';
-import { useToast } from '../hooks/useToast';
 
 export const Login = () => {
   const navigate = useNavigate();
-  const { login, loginWithOAuth } = useAuth();
-  const { addToast } = useToast();
+  const location = useLocation();
+  const { login, loginWithOAuth, isAuthenticated } = useAuth();
 
-  const [email, setEmail] = useState('');
+  const redirectPath = location.state?.from?.pathname || '/account';
+
+  const [email, setEmail] = useState(location.state?.email || '');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
+  // If already logged in, redirect automatically
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate(redirectPath, { replace: true });
+    }
+  }, [isAuthenticated, navigate, redirectPath]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!email || !password) {
+    if (!email.trim() || !password) {
       setError('Please fill in both email and password.');
       return;
     }
@@ -40,20 +51,9 @@ export const Login = () => {
     setIsLoading(false);
 
     if (res?.success) {
-      navigate('/account');
+      navigate(redirectPath, { replace: true });
     } else {
-      setError(res?.error || 'Failed to sign in. Please check your credentials.');
-    }
-  };
-
-  const handleDemoLogin = async () => {
-    setEmail('alex.morgan@example.com');
-    setPassword('••••••••••••');
-    setIsLoading(true);
-    const res = await login('alex.morgan@example.com', 'password', true);
-    setIsLoading(false);
-    if (res?.success) {
-      navigate('/account');
+      setError(res?.error || 'Failed to sign in. Please verify your credentials.');
     }
   };
 
@@ -64,165 +64,238 @@ export const Login = () => {
   };
 
   return (
-    <div className="bg-neutral-50 min-h-[80vh] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35 }}
-        className="max-w-md w-full bg-white rounded-3xl p-8 sm:p-10 border border-neutral-200/80 shadow-xl"
-      >
-        {/* Header */}
-        <div className="text-center mb-8">
-          <Link to="/" className="inline-flex items-center gap-2 mb-4">
-            <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-md">
-              <ShoppingBag className="w-5 h-5" />
-            </div>
-            <span className="text-2xl font-black text-neutral-900">
-              Nova<span className="text-indigo-600">Cart</span>
-            </span>
-          </Link>
-          <h1 className="text-2xl font-extrabold text-neutral-900">Welcome Back</h1>
-          <p className="text-xs text-neutral-500 mt-1">
-            Sign in to access your orders, wishlist, and VIP perks.
-          </p>
-        </div>
+    <div className="bg-neutral-50 min-h-[90vh] flex items-center justify-center py-10 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-5xl w-full bg-white rounded-3xl shadow-2xl border border-neutral-200/80 overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[620px]">
+        
+        {/* Left Visual Panel: Brand & Perks (Hidden on small screens) */}
+        <div className="hidden lg:flex lg:col-span-5 bg-gradient-to-br from-neutral-900 via-neutral-950 to-indigo-950 text-white p-10 flex-col justify-between relative overflow-hidden">
+          {/* Subtle glow orb */}
+          <div className="absolute -top-24 -left-24 w-72 h-72 rounded-full bg-indigo-500/20 blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-24 -right-24 w-72 h-72 rounded-full bg-purple-500/20 blur-3xl pointer-events-none" />
 
-        {/* Demo Fast Login Pill */}
-        <div className="mb-6 p-3 bg-indigo-50 border border-indigo-100 rounded-2xl flex items-center justify-between">
-          <div className="flex items-center gap-2 text-xs text-indigo-900 font-medium">
-            <Sparkles className="w-4 h-4 text-indigo-600 shrink-0" />
-            <span>Quick test? Use 1-Click Demo account</span>
+          {/* Top Brand */}
+          <div className="relative z-10">
+            <Link to="/" className="inline-flex items-center gap-2.5 mb-8">
+              <div className="w-10 h-10 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-600/30">
+                <ShoppingBag className="w-5 h-5" />
+              </div>
+              <span className="text-2xl font-black tracking-tight text-white">
+                Nova<span className="text-indigo-400">Cart</span>
+              </span>
+            </Link>
+
+            <h2 className="text-2xl font-extrabold leading-snug tracking-tight text-white mb-3">
+              Curated Luxury, Seamless Delivery.
+            </h2>
+            <p className="text-xs text-neutral-400 leading-relaxed">
+              Sign in to manage your saved destinations, track orders in real-time, and unlock VIP member benefits.
+            </p>
           </div>
-          <button
-            type="button"
-            onClick={handleDemoLogin}
-            className="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition-colors"
-          >
-            Fill Demo
-          </button>
+
+          {/* Middle Feature Highlights */}
+          <div className="space-y-4 my-8 relative z-10">
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-xl bg-white/10 backdrop-blur-md flex items-center justify-center shrink-0 border border-white/10 text-indigo-400">
+                <Truck className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-white">Priority Express Courier</p>
+                <p className="text-[11px] text-neutral-400">Real-time live map tracking to your door.</p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-xl bg-white/10 backdrop-blur-md flex items-center justify-center shrink-0 border border-white/10 text-indigo-400">
+                <ShieldCheck className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-white">Bank-Grade Isolation</p>
+                <p className="text-[11px] text-neutral-400">Row-level security protecting your personal data.</p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-xl bg-white/10 backdrop-blur-md flex items-center justify-center shrink-0 border border-white/10 text-indigo-400">
+                <RotateCcw className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-white">30-Day Hassle-Free Returns</p>
+                <p className="text-[11px] text-neutral-400">One-click returns and instant refunds.</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom Testimonial Pill */}
+          <div className="p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md relative z-10">
+            <div className="flex items-center gap-1 text-amber-400 mb-1.5">
+              {[...Array(5)].map((_, i) => (
+                <Star key={i} className="w-3.5 h-3.5 fill-amber-400" />
+              ))}
+            </div>
+            <p className="text-xs italic text-neutral-300">
+              &ldquo;The fastest and most reliable checkout experience I&apos;ve used.&rdquo;
+            </p>
+            <p className="text-[10px] text-neutral-400 mt-1 font-semibold uppercase tracking-wider">
+              Verified NovaCart Member
+            </p>
+          </div>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Right Form Panel: Executive Sign In */}
+        <div className="lg:col-span-7 p-8 sm:p-12 flex flex-col justify-center">
+          
+          {/* Header Mobile Brand */}
+          <div className="lg:hidden text-center mb-6">
+            <Link to="/" className="inline-flex items-center gap-2 mb-3">
+              <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-md">
+                <ShoppingBag className="w-5 h-5" />
+              </div>
+              <span className="text-2xl font-black text-neutral-900">
+                Nova<span className="text-indigo-600">Cart</span>
+              </span>
+            </Link>
+          </div>
+
+          <div className="mb-6">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-neutral-900 tracking-tight">
+              Customer Sign In
+            </h1>
+            <p className="text-xs sm:text-sm text-neutral-500 mt-1.5">
+              Welcome back! Please enter your account credentials to continue.
+            </p>
+          </div>
+
+          {/* Error Alert */}
           {error && (
-            <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl font-medium">
-              {error}
-            </div>
+            <motion.div
+              initial={{ opacity: 0, y: -5 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-5 p-3.5 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-2xl font-medium"
+            >
+              <div className="flex items-start gap-2.5">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p>{error}</p>
+                  {error.toLowerCase().includes('not confirmed') && (
+                    <p className="mt-1 text-[11px] text-rose-600 font-normal">
+                      Tip: If this email was created before email confirmation was turned off, you can register a new test email or click the 1-Click Sign In button above.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </motion.div>
           )}
 
-          <div>
-            <label className="text-xs font-semibold text-neutral-700 block mb-1">
-              Email Address
-            </label>
-            <div className="relative">
-              <Mail className="w-4 h-4 text-neutral-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                  setError('');
-                }}
-                placeholder="name@example.com"
-                className="w-full pl-10 pr-4 py-2.5 bg-neutral-50 rounded-xl text-xs sm:text-sm border border-neutral-200 focus:bg-white focus:outline-hidden focus:border-indigo-500"
-                required
-              />
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="text-xs font-bold text-neutral-700 block mb-1.5">
+                Email Address
+              </label>
+              <div className="relative">
+                <Mail className="w-4 h-4 text-neutral-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    setError('');
+                  }}
+                  placeholder="name@example.com"
+                  autoComplete="email"
+                  className="w-full pl-11 pr-4 py-3 bg-neutral-50 rounded-2xl text-xs sm:text-sm border border-neutral-200 focus:bg-white focus:outline-hidden focus:border-indigo-600 focus:ring-4 focus:ring-indigo-100 transition-all font-medium"
+                  required
+                />
+              </div>
             </div>
-          </div>
 
-          <div>
-            <div className="flex justify-between items-center mb-1">
-              <label className="text-xs font-semibold text-neutral-700">Password</label>
+            <div>
+              <div className="flex justify-between items-center mb-1.5">
+                <label className="text-xs font-bold text-neutral-700">Password</label>
+                <Link
+                  to="/forgot-password"
+                  className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 hover:underline transition-colors"
+                >
+                  Forgot password?
+                </Link>
+              </div>
+              <div className="relative">
+                <Lock className="w-4 h-4 text-neutral-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setError('');
+                  }}
+                  placeholder="••••••••"
+                  autoComplete="current-password"
+                  className="w-full pl-11 pr-11 py-3 bg-neutral-50 rounded-2xl text-xs sm:text-sm border border-neutral-200 focus:bg-white focus:outline-hidden focus:border-indigo-600 focus:ring-4 focus:ring-indigo-100 transition-all font-medium"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((p) => !p)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-700 transition-colors"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full py-3.5 px-4 bg-neutral-900 hover:bg-indigo-600 active:scale-[0.99] disabled:opacity-50 text-white rounded-2xl text-xs sm:text-sm font-bold shadow-lg shadow-neutral-900/10 transition-all flex items-center justify-center gap-2 cursor-pointer mt-2"
+            >
+              {isLoading ? (
+                <span>Authenticating...</span>
+              ) : (
+                <>
+                  <span>Sign In to Account</span>
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
+            </button>
+          </form>
+
+          {/* Social Sign In Divider */}
+          <div className="mt-8 pt-6 border-t border-neutral-100">
+            <div className="relative flex justify-center text-xs uppercase mb-4">
+              <span className="bg-white px-3 text-[11px] font-semibold text-neutral-400">
+                Or continue with
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
-                onClick={() => addToast('Reset link sent to demo address.', 'info')}
-                className="text-[11px] font-semibold text-indigo-600 hover:underline"
+                onClick={() => handleOAuthLogin('google')}
+                className="py-2.5 px-3 border border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50 rounded-2xl text-xs font-semibold text-neutral-700 flex items-center justify-center gap-2 transition-all cursor-pointer shadow-2xs"
               >
-                Forgot password?
+                <span>Google</span>
               </button>
-            </div>
-            <div className="relative">
-              <Lock className="w-4 h-4 text-neutral-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value);
-                  setError('');
-                }}
-                placeholder="••••••••"
-                className="w-full pl-10 pr-10 py-2.5 bg-neutral-50 rounded-xl text-xs sm:text-sm border border-neutral-200 focus:bg-white focus:outline-hidden focus:border-indigo-500"
-                required
-              />
               <button
                 type="button"
-                onClick={() => setShowPassword((p) => !p)}
-                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
+                onClick={() => handleOAuthLogin('github')}
+                className="py-2.5 px-3 border border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50 rounded-2xl text-xs font-semibold text-neutral-700 flex items-center justify-center gap-2 transition-all cursor-pointer shadow-2xs"
               >
-                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                <span>GitHub</span>
               </button>
             </div>
           </div>
 
-          <div className="flex items-center justify-between text-xs pt-1">
-            <label className="flex items-center gap-2 text-neutral-600 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-                className="accent-indigo-600 rounded"
-              />
-              <span>Remember me for 30 days</span>
-            </label>
-          </div>
-
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full py-3.5 px-4 bg-neutral-900 hover:bg-indigo-600 disabled:opacity-50 text-white rounded-2xl text-xs sm:text-sm font-bold shadow-md transition-colors flex items-center justify-center gap-2 pt-3"
-          >
-            {isLoading ? (
-              <span>Signing in...</span>
-            ) : (
-              <>
-                <span>Sign In</span>
-                <ArrowRight className="w-4 h-4" />
-              </>
-            )}
-          </button>
-        </form>
-
-        {/* Social Mockup Buttons */}
-        <div className="mt-6 pt-6 border-t border-neutral-100">
-          <p className="text-center text-[11px] uppercase tracking-wider text-neutral-400 font-semibold mb-3">
-            Or continue with
+          {/* Switch to Register */}
+          <p className="text-center text-xs text-neutral-500 mt-8">
+            Don&apos;t have an account yet?{' '}
+            <Link to="/register" className="font-bold text-indigo-600 hover:underline">
+              Create an account
+            </Link>
           </p>
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={() => handleOAuthLogin('google')}
-              className="py-2.5 px-3 border border-neutral-200 hover:bg-neutral-50 rounded-xl text-xs font-semibold text-neutral-700 flex items-center justify-center gap-2 transition-colors"
-            >
-              <span>Google</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleOAuthLogin('apple')}
-              className="py-2.5 px-3 border border-neutral-200 hover:bg-neutral-50 rounded-xl text-xs font-semibold text-neutral-700 flex items-center justify-center gap-2 transition-colors"
-            >
-              <span>Apple</span>
-            </button>
-          </div>
+
         </div>
 
-        {/* Switch to Register */}
-        <p className="text-center text-xs text-neutral-500 mt-6">
-          Don&apos;t have an account yet?{' '}
-          <Link to="/register" className="font-bold text-indigo-600 hover:underline">
-            Create an account
-          </Link>
-        </p>
-      </motion.div>
+      </div>
     </div>
   );
 };

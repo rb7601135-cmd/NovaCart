@@ -9,6 +9,7 @@ import { AdminAuthProvider } from './context/AdminAuthContext';
 import { MainLayout } from './layouts/MainLayout';
 import { AdminLayout } from './layouts/AdminLayout';
 import { AdminProtectedRoute } from './components/admin/AdminProtectedRoute';
+import { ProtectedRoute } from './components/common/ProtectedRoute';
 
 // Storefront Pages
 import { Home } from './pages/Home';
@@ -19,6 +20,8 @@ import { Cart } from './pages/Cart';
 import { Checkout } from './pages/Checkout';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
+import { ForgotPassword } from './pages/ForgotPassword';
+import { ResetPassword } from './pages/ResetPassword';
 import { Account } from './pages/Account';
 import { Orders } from './pages/Orders';
 import { About } from './pages/About';
@@ -53,8 +56,24 @@ function App() {
                       <Route path="checkout" element={<Checkout />} />
                       <Route path="login" element={<Login />} />
                       <Route path="register" element={<Register />} />
-                      <Route path="account" element={<Account />} />
-                      <Route path="orders" element={<Orders />} />
+                      <Route path="forgot-password" element={<ForgotPassword />} />
+                      <Route path="reset-password" element={<ResetPassword />} />
+                      <Route
+                        path="account"
+                        element={
+                          <ProtectedRoute>
+                            <Account />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="orders"
+                        element={
+                          <ProtectedRoute>
+                            <Orders />
+                          </ProtectedRoute>
+                        }
+                      />
                       <Route path="about" element={<About />} />
                       <Route path="contact" element={<Contact />} />
                       <Route path="*" element={<NotFound />} />
