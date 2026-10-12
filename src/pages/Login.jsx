@@ -16,7 +16,7 @@ import { useToast } from '../hooks/useToast';
 
 export const Login = () => {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, loginWithOAuth } = useAuth();
   const { addToast } = useToast();
 
   const [email, setEmail] = useState('');
@@ -24,23 +24,43 @@ export const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!email || !password) {
       setError('Please fill in both email and password.');
       return;
     }
 
-    login(email, password);
-    navigate('/account');
+    setIsLoading(true);
+    setError('');
+
+    const res = await login(email, password);
+    setIsLoading(false);
+
+    if (res?.success) {
+      navigate('/account');
+    } else {
+      setError(res?.error || 'Failed to sign in. Please check your credentials.');
+    }
   };
 
-  const handleDemoLogin = () => {
+  const handleDemoLogin = async () => {
     setEmail('alex.morgan@example.com');
     setPassword('••••••••••••');
-    login('alex.morgan@example.com', 'password');
-    navigate('/account');
+    setIsLoading(true);
+    const res = await login('alex.morgan@example.com', 'password', true);
+    setIsLoading(false);
+    if (res?.success) {
+      navigate('/account');
+    }
+  };
+
+  const handleOAuthLogin = async (provider) => {
+    setIsLoading(true);
+    await loginWithOAuth(provider);
+    setIsLoading(false);
   };
 
   return (
@@ -158,10 +178,17 @@ export const Login = () => {
 
           <button
             type="submit"
-            className="w-full py-3.5 px-4 bg-neutral-900 hover:bg-indigo-600 text-white rounded-2xl text-xs sm:text-sm font-bold shadow-md transition-colors flex items-center justify-center gap-2 pt-3"
+            disabled={isLoading}
+            className="w-full py-3.5 px-4 bg-neutral-900 hover:bg-indigo-600 disabled:opacity-50 text-white rounded-2xl text-xs sm:text-sm font-bold shadow-md transition-colors flex items-center justify-center gap-2 pt-3"
           >
-            <span>Sign In</span>
-            <ArrowRight className="w-4 h-4" />
+            {isLoading ? (
+              <span>Signing in...</span>
+            ) : (
+              <>
+                <span>Sign In</span>
+                <ArrowRight className="w-4 h-4" />
+              </>
+            )}
           </button>
         </form>
 
@@ -172,13 +199,15 @@ export const Login = () => {
           </p>
           <div className="grid grid-cols-2 gap-3">
             <button
-              onClick={handleDemoLogin}
+              type="button"
+              onClick={() => handleOAuthLogin('google')}
               className="py-2.5 px-3 border border-neutral-200 hover:bg-neutral-50 rounded-xl text-xs font-semibold text-neutral-700 flex items-center justify-center gap-2 transition-colors"
             >
               <span>Google</span>
             </button>
             <button
-              onClick={handleDemoLogin}
+              type="button"
+              onClick={() => handleOAuthLogin('apple')}
               className="py-2.5 px-3 border border-neutral-200 hover:bg-neutral-50 rounded-xl text-xs font-semibold text-neutral-700 flex items-center justify-center gap-2 transition-colors"
             >
               <span>Apple</span>

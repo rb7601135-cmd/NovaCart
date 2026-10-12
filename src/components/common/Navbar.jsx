@@ -11,12 +11,12 @@ import {
   ChevronDown,
   Package,
   LogOut,
-  ArrowRight,
-  ShieldCheck
+  ArrowRight
 } from 'lucide-react';
 import { useCart } from '../../hooks/useCart';
 import { useWishlist } from '../../hooks/useWishlist';
 import { useAuth } from '../../hooks/useAuth';
+import { useCms } from '../../hooks/useCms';
 import { products } from '../../data/products';
 import { formatPrice } from '../../utils/currency';
 
@@ -24,6 +24,7 @@ export const Navbar = () => {
   const { totalItems, openCartDrawer } = useCart();
   const { wishlistCount } = useWishlist();
   const { user, isAuthenticated, logout } = useAuth();
+  const { settings } = useCms();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -56,6 +57,18 @@ export const Navbar = () => {
     }
   }, [location.pathname]);
 
+
+  // Secret admin shortcut: Ctrl + Shift + A (or Cmd + Shift + A)
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'A' || e.key === 'a')) {
+        e.preventDefault();
+        navigate('/admin/login');
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [navigate]);
 
   // Click outside listener for search & account dropdown
   useEffect(() => {
@@ -103,22 +116,26 @@ export const Navbar = () => {
   return (
     <header className="sticky top-0 z-40 w-full transition-all duration-300">
       {/* Top Announcement Bar */}
-      <div className="bg-neutral-900 text-neutral-300 text-[11px] sm:text-xs py-2 px-4 border-b border-neutral-800">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="hidden sm:inline font-medium">Autumn Season Release:</span>
-            <span>Use code <strong className="text-white tracking-wider">NOVA20</strong> for 20% off all orders</span>
-          </div>
+      {settings.isAnnouncementActive && (
+        <div className="bg-neutral-900 text-neutral-300 text-[11px] sm:text-xs py-2 px-4 border-b border-neutral-800">
+          <div className="max-w-7xl mx-auto flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+              {settings.announcementBadge && (
+                <span className="hidden sm:inline font-medium">{settings.announcementBadge}</span>
+              )}
+              <span>{settings.announcementText}</span>
+            </div>
 
-          <div className="hidden md:flex items-center gap-6 text-neutral-400">
-            <span className="flex items-center gap-1 hover:text-white transition-colors cursor-pointer">
-              <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" /> 100% Authentic Guarantee
-            </span>
-            <span>Free Express Worldwide over $100</span>
+            <div className="hidden md:flex items-center gap-6 text-neutral-400">
+              <span className="flex items-center gap-1 hover:text-white transition-colors cursor-pointer">
+                100% Authentic Guarantee
+              </span>
+              <span>Free Express Worldwide over ${settings.freeShippingThreshold || 100}</span>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Main Navigation Bar */}
       <nav
@@ -142,15 +159,23 @@ export const Navbar = () => {
 
             {/* Logo */}
             <Link to="/" className="flex items-center gap-2.5 group">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-violet-500 flex items-center justify-center text-white shadow-md shadow-indigo-500/20 group-hover:scale-105 transition-transform">
-                <ShoppingBag className="w-5 h-5" />
-              </div>
+              {settings.storeLogo ? (
+                <img
+                  src={settings.storeLogo}
+                  alt={settings.storeName}
+                  className="w-10 h-10 rounded-xl object-contain bg-white/10 p-1 border border-neutral-200 group-hover:scale-105 transition-transform"
+                />
+              ) : (
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-violet-500 flex items-center justify-center text-white shadow-md shadow-indigo-500/20 group-hover:scale-105 transition-transform">
+                  <ShoppingBag className="w-5 h-5" />
+                </div>
+              )}
               <div className="flex flex-col">
                 <span className="text-xl sm:text-2xl font-extrabold tracking-tight text-neutral-900 group-hover:text-indigo-600 transition-colors">
-                  Nova<span className="text-indigo-600">Cart</span>
+                  {settings.storeName || 'NovaCart'}
                 </span>
                 <span className="text-[9px] uppercase tracking-widest font-bold text-neutral-600 -mt-1 hidden sm:block">
-                  Luxury Essentials
+                  {settings.storeTagline || 'Luxury Essentials'}
                 </span>
               </div>
             </Link>

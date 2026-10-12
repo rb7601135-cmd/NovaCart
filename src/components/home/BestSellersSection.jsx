@@ -1,13 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Trophy } from 'lucide-react';
 import { ProductCard } from '../common/ProductCard';
 import { QuickViewModal } from '../common/QuickViewModal';
 import { getBestSellers } from '../../data/products';
+import { fetchAllProducts } from '../../lib/productService';
 
 export const BestSellersSection = () => {
-  const bestSellers = getBestSellers();
+  const [bestSellers, setBestSellers] = useState(() => getBestSellers());
   const [quickViewProduct, setQuickViewProduct] = useState(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    fetchAllProducts().then((all) => {
+      if (isMounted) {
+        setBestSellers(all.filter((p) => p.isBestSeller || p.reviewsCount > 150).slice(0, 8));
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   return (
     <section className="py-20 bg-white border-t border-neutral-200">

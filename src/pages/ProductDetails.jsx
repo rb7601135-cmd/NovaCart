@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   Heart,
@@ -12,13 +12,15 @@ import {
   ChevronRight,
   Share2
 } from 'lucide-react';
-import { products, getProductById, getRelatedProducts } from '../data/products';
+import { getRelatedProducts } from '../data/products';
+import { fetchProductById } from '../lib/productService';
 import { formatPrice } from '../utils/currency';
 import { RatingStars } from '../components/common/RatingStars';
 import { ProductCard } from '../components/common/ProductCard';
 import { useCart } from '../hooks/useCart';
 import { useWishlist } from '../hooks/useWishlist';
 import { useToast } from '../hooks/useToast';
+import { useCms } from '../hooks/useCms';
 
 const ProductDetailContent = ({ product }) => {
   const navigate = useNavigate();
@@ -507,7 +509,38 @@ const ProductDetailContent = ({ product }) => {
 
 export const ProductDetails = () => {
   const { id } = useParams();
-  const product = getProductById(id) || products[0];
+  const { products: cmsProducts } = useCms();
+  const [product, setProduct] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadProduct() {
+      setLoading(true);
+      let prod = await fetchProductById(id);
+      if (!prod && cmsProducts) {
+        prod = cmsProducts.find((p) => String(p.id) === String(id)) || null;
+      }
+      if (isMounted) {
+        setProduct(prod);
+        setLoading(false);
+      }
+    }
+
+    loadProduct();
+    return () => {
+      isMounted = false;
+    };
+  }, [id, cmsProducts]);
+
+  if (loading) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 py-24 text-center flex flex-col items-center justify-center">
+        <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mb-4" />
+        <p className="text-xs font-semibold text-neutral-500">Loading product details...</p>
+      </div>
+    );
+  }
 
   if (!product) {
     return (

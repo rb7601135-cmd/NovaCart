@@ -81,7 +81,7 @@ export const Checkout = () => {
 
     setIsSubmitting(true);
 
-    setTimeout(() => {
+    setTimeout(async () => {
       // Trigger festive celebration
       try {
         confetti({
@@ -93,9 +93,8 @@ export const Checkout = () => {
         // Confetti optional
       }
 
-
-      // Record Order in AuthContext
-      const newOrder = addOrder({
+      // Record Order in AuthContext (persists locally and syncs to Supabase)
+      const newOrder = await addOrder({
         items: cart.map((i) => ({
           id: i.id,
           name: i.name,

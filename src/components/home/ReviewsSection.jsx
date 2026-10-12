@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { CheckCircle2, Quote, Star } from 'lucide-react';
+import { CheckCircle2, Quote } from 'lucide-react';
 import { reviews } from '../../data/reviews';
 import { RatingStars } from '../common/RatingStars';
 

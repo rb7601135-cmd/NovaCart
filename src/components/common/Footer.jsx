@@ -12,14 +12,15 @@ import {
   Lock
 } from 'lucide-react';
 import { useToast } from '../../hooks/useToast';
+import { useCms } from '../../hooks/useCms';
 
 const CURRENT_YEAR = new Date().getFullYear();
 
 export const Footer = () => {
-
   const [email, setEmail] = useState('');
   const [isSubscribed, setIsSubscribed] = useState(false);
   const { addToast } = useToast();
+  const { settings } = useCms();
 
   const handleSubscribe = (e) => {
     e.preventDefault();
@@ -94,16 +95,24 @@ export const Footer = () => {
           {/* Brand Info & Newsletter */}
           <div className="lg:col-span-2 space-y-5">
             <Link to="/" className="flex items-center gap-2.5">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-violet-500 flex items-center justify-center text-white shadow-md">
-                <ShoppingBag className="w-5 h-5" />
-              </div>
+              {settings.storeLogo ? (
+                <img
+                  src={settings.storeLogo}
+                  alt={settings.storeName}
+                  className="w-10 h-10 object-contain rounded-xl bg-white/10 p-1 border border-neutral-800"
+                />
+              ) : (
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-violet-500 flex items-center justify-center text-white shadow-md">
+                  <ShoppingBag className="w-5 h-5" />
+                </div>
+              )}
               <span className="text-2xl font-black text-white">
-                Nova<span className="text-indigo-400">Cart</span>
+                {settings.storeName || 'NovaCart'}
               </span>
             </Link>
 
             <p className="text-sm text-neutral-400 leading-relaxed max-w-sm">
-              Discover curated excellence. We bring together modern luxury garments, precision audio, ergonomic home aesthetics, and forward-thinking technology.
+              {settings.storeTagline ? `${settings.storeTagline}. ` : ''}Discover curated excellence. We bring together modern luxury garments, precision audio, ergonomic home aesthetics, and forward-thinking technology.
             </p>
 
             {/* Newsletter Form */}

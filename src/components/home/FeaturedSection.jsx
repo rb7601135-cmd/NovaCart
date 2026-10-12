@@ -1,13 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Sparkles } from 'lucide-react';
 import { ProductCard } from '../common/ProductCard';
 import { QuickViewModal } from '../common/QuickViewModal';
 import { getFeaturedProducts } from '../../data/products';
+import { fetchAllProducts } from '../../lib/productService';
 
 export const FeaturedSection = () => {
-  const featured = getFeaturedProducts();
+  const [featured, setFeatured] = useState(() => getFeaturedProducts());
   const [quickViewProduct, setQuickViewProduct] = useState(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    fetchAllProducts().then((all) => {
+      if (isMounted) {
+        setFeatured(all.filter((p) => p.isFeatured).slice(0, 8));
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   return (
     <section className="py-20 bg-white">

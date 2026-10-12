@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
 import {
   Mail,
   Phone,
@@ -9,8 +8,7 @@ import {
   CheckCircle2,
   ChevronDown,
   MessageSquare,
-  HelpCircle,
-  ShieldCheck
+  HelpCircle
 } from 'lucide-react';
 import { useToast } from '../hooks/useToast';
 

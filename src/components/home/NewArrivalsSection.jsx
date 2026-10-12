@@ -1,13 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Flame } from 'lucide-react';
 import { ProductCard } from '../common/ProductCard';
 import { QuickViewModal } from '../common/QuickViewModal';
 import { getNewArrivals } from '../../data/products';
+import { fetchAllProducts } from '../../lib/productService';
 
 export const NewArrivalsSection = () => {
-  const newArrivals = getNewArrivals();
+  const [newArrivals, setNewArrivals] = useState(() => getNewArrivals());
   const [quickViewProduct, setQuickViewProduct] = useState(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    fetchAllProducts().then((all) => {
+      if (isMounted) {
+        setNewArrivals(all.filter((p) => p.isNew).slice(0, 8));
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   return (
     <section className="py-20 bg-neutral-50/70 border-t border-neutral-200">

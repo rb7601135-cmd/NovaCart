@@ -27,6 +27,7 @@ export const Register = () => {
 
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -50,7 +51,7 @@ export const Register = () => {
 
   const strength = getPasswordStrength();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.name || !formData.email || !formData.password) {
       setError('Please fill in all required fields.');
@@ -65,13 +66,22 @@ export const Register = () => {
       return;
     }
 
-    register({
+    setIsLoading(true);
+    setError('');
+
+    const res = await register({
       name: formData.name,
       email: formData.email,
       password: formData.password
     });
 
-    navigate('/account');
+    setIsLoading(false);
+
+    if (res?.success) {
+      navigate('/account');
+    } else {
+      setError(res?.error || 'Registration failed. Please try again.');
+    }
   };
 
   return (
@@ -230,10 +240,17 @@ export const Register = () => {
 
           <button
             type="submit"
-            className="w-full py-3.5 px-4 bg-neutral-900 hover:bg-indigo-600 text-white rounded-2xl text-xs sm:text-sm font-bold shadow-md transition-colors flex items-center justify-center gap-2 pt-3"
+            disabled={isLoading}
+            className="w-full py-3.5 px-4 bg-neutral-900 hover:bg-indigo-600 disabled:opacity-50 text-white rounded-2xl text-xs sm:text-sm font-bold shadow-md transition-colors flex items-center justify-center gap-2 pt-3"
           >
-            <span>Create Account</span>
-            <ArrowRight className="w-4 h-4" />
+            {isLoading ? (
+              <span>Creating Account...</span>
+            ) : (
+              <>
+                <span>Create Account</span>
+                <ArrowRight className="w-4 h-4" />
+              </>
+            )}
           </button>
         </form>
 
