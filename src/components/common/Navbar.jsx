@@ -17,14 +17,15 @@ import { useCart } from '../../hooks/useCart';
 import { useWishlist } from '../../hooks/useWishlist';
 import { useAuth } from '../../hooks/useAuth';
 import { useCms } from '../../hooks/useCms';
-import { products } from '../../data/products';
+import { products as fallbackProducts } from '../../data/products';
 import { formatPrice } from '../../utils/currency';
 
 export const Navbar = () => {
   const { totalItems, openCartDrawer } = useCart();
   const { wishlistCount } = useWishlist();
   const { user, isAuthenticated, logout } = useAuth();
-  const { settings } = useCms();
+  const { settings, products: cmsProducts } = useCms();
+  const products = cmsProducts && cmsProducts.length > 0 ? cmsProducts : fallbackProducts;
   const navigate = useNavigate();
   const location = useLocation();
 

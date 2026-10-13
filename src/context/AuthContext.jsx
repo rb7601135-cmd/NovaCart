@@ -49,15 +49,32 @@ export const AuthProvider = ({ children }) => {
 
   // Load orders for a specific user ID / email
   const fetchUserOrders = useCallback(async (currentUserId, currentUserEmail) => {
-    if (!currentUserId) {
+    if (!currentUserId && !currentUserEmail) {
       setOrders([]);
       return;
     }
 
-    // Check user-scoped local cache first
-    const cachedOrders = getStorageItem(`novacart_orders_${currentUserId}`, []);
-    if (cachedOrders && cachedOrders.length > 0) {
-      setOrders(cachedOrders);
+    // 1. Check user-scoped local cache
+    const cachedOrders = currentUserId ? getStorageItem(`novacart_orders_${currentUserId}`, []) : [];
+
+    // 2. Also check global orders matching this user ID or email
+    const allStoredOrders = getStorageItem('novacart_orders', []);
+    const matchingShared = allStoredOrders.filter(
+      (o) =>
+        (currentUserId && (o.userId === currentUserId || o.user_id === currentUserId)) ||
+        (currentUserEmail && (o.userEmail === currentUserEmail || o.shippingAddress?.email?.toLowerCase() === currentUserEmail.toLowerCase()))
+    );
+
+    // Merge cached with shared
+    const initialMerged = [...cachedOrders];
+    matchingShared.forEach((so) => {
+      if (!initialMerged.some((co) => co.id === so.id)) {
+        initialMerged.push(so);
+      }
+    });
+
+    if (initialMerged.length > 0) {
+      setOrders(initialMerged);
     }
 
     if (!supabase) return;
@@ -81,7 +98,7 @@ export const AuthProvider = ({ children }) => {
             year: 'numeric'
           }),
           status: o.status || 'Processing',
-          statusStep: o.status === 'Delivered' ? 3 : o.status === 'In Transit' ? 2 : 1,
+          statusStep: o.status === 'Delivered' ? 3 : o.status === 'Shipped' || o.status === 'In Transit' ? 2 : 1,
           trackingNumber: o.tracking_number || `TRK-${Math.floor(100000000 + Math.random() * 900000000)}US`,
           carrier: o.carrier || 'NovaCart Express',
           estimatedDelivery: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', {
@@ -101,11 +118,40 @@ export const AuthProvider = ({ children }) => {
         }));
 
         setOrders(mapped);
-        setStorageItem(`novacart_orders_${currentUserId}`, mapped);
+        if (currentUserId) {
+          setStorageItem(`novacart_orders_${currentUserId}`, mapped);
+        }
       }
     } catch (err) {
       console.warn('Orders fetch note:', err);
     }
+  }, []);
+
+  // Real-time synchronization of order changes made from CMS
+  useEffect(() => {
+    const handleOrderUpdate = (e) => {
+      if (e.detail?.orderId) {
+        setOrders((prev) =>
+          prev.map((o) =>
+            o.id === e.detail.orderId
+              ? {
+                  ...o,
+                  status: e.detail.newStatus,
+                  statusStep:
+                    e.detail.newStatus === 'Delivered'
+                      ? 3
+                      : e.detail.newStatus === 'Shipped' || e.detail.newStatus === 'In Transit'
+                      ? 2
+                      : 1,
+                  ...e.detail.extraDetails
+                }
+              : o
+          )
+        );
+      }
+    };
+    window.addEventListener('novacart:order_updated', handleOrderUpdate);
+    return () => window.removeEventListener('novacart:order_updated', handleOrderUpdate);
   }, []);
 
   // Fetch optional profile table data from Supabase
@@ -492,15 +538,15 @@ export const AuthProvider = ({ children }) => {
 
   // Add order for current user
   const addOrder = async (orderData) => {
-    const orderId = `NC-${Math.floor(10000 + Math.random() * 90000)}`;
+    const orderId = orderData.id || `NC-${Math.floor(10000 + Math.random() * 90000)}`;
     const newOrder = {
       id: orderId,
-      date: new Date().toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }),
-      status: 'Processing',
-      statusStep: 1,
-      trackingNumber: `TRK-${Math.floor(100000000 + Math.random() * 900000000)}US`,
-      carrier: 'NovaCart Express',
-      estimatedDelivery: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', {
+      date: orderData.date || new Date().toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }),
+      status: orderData.status || 'Processing',
+      statusStep: orderData.statusStep || 1,
+      trackingNumber: orderData.trackingNumber || `TRK-${Math.floor(100000000 + Math.random() * 900000000)}US`,
+      carrier: orderData.carrier || 'NovaCart Express',
+      estimatedDelivery: orderData.estimatedDelivery || new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', {
         month: 'short',
         day: '2-digit',
         year: 'numeric'
@@ -508,16 +554,23 @@ export const AuthProvider = ({ children }) => {
       ...orderData
     };
 
-    setOrders((prev) => [newOrder, ...prev]);
+    setOrders((prev) => [newOrder, ...prev.filter((o) => o.id !== newOrder.id)]);
+
+    // Always sync to shared novacart_orders for CMS visibility
+    const allStored = getStorageItem('novacart_orders', []);
+    if (!allStored.some((o) => o.id === newOrder.id)) {
+      setStorageItem('novacart_orders', [newOrder, ...allStored]);
+    }
 
     if (user?.id) {
-      const updatedList = [newOrder, ...orders];
-      setStorageItem(`novacart_orders_${user.id}`, updatedList);
+      const userOrders = getStorageItem(`novacart_orders_${user.id}`, []);
+      const updatedUserOrders = [newOrder, ...userOrders.filter((o) => o.id !== newOrder.id)];
+      setStorageItem(`novacart_orders_${user.id}`, updatedUserOrders);
     }
 
     if (supabase) {
       try {
-        const { error } = await supabase.from('orders').insert({
+        const { error } = await supabase.from('orders').upsert({
           id: newOrder.id,
           user_id: user?.id || null,
           user_email: user?.email || orderData.shippingAddress?.email || null,

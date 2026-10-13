@@ -45,7 +45,7 @@ export const Footer = () => {
             <div>
               <h4 className="text-sm font-bold text-white mb-1">Free Express Delivery</h4>
               <p className="text-xs text-neutral-400 leading-relaxed">
-                Complimentary worldwide courier on all orders exceeding $100.
+                Complimentary worldwide courier on all orders exceeding {settings.currencySymbol || '$'}{settings.freeShippingThreshold || 100}.
               </p>
             </div>
           </div>
@@ -269,7 +269,7 @@ export const Footer = () => {
       {/* Bottom Bar: Copyright & Payment Badges */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 border-t border-neutral-900 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-neutral-500">
         <div>
-          &copy; {CURRENT_YEAR} NovaCart Inc. All rights reserved. Built with React & Vite.
+          &copy; {CURRENT_YEAR} {settings?.storeName || 'NovaCart'} Inc. All rights reserved.
         </div>
 
 

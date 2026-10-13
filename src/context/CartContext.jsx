@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { getStorageItem, setStorageItem } from '../utils/storage';
 import { useToast } from './ToastContext';
+import { useCms } from '../hooks/useCms';
 
 const CartContext = createContext(null);
 
@@ -12,6 +13,7 @@ export const CartProvider = ({ children }) => {
   const [isCartDrawerOpen, setIsCartDrawerOpen] = useState(false);
   const [coupon, setCoupon] = useState(() => getStorageItem(COUPON_KEY, null));
   const { addToast } = useToast();
+  const { settings } = useCms();
 
   useEffect(() => {
     setStorageItem(STORAGE_KEY, cart);
@@ -121,10 +123,11 @@ export const CartProvider = ({ children }) => {
   const discountAmount = coupon ? (subtotal * coupon.discountPercent) / 100 : 0;
   const discountedSubtotal = Math.max(0, subtotal - discountAmount);
   
-  // Free shipping threshold: $100
-  const freeShippingThreshold = 100;
+  // Free shipping threshold & tax rate from CMS settings
+  const freeShippingThreshold = Number(settings?.freeShippingThreshold ?? 100);
+  const taxRateDecimal = Number(settings?.taxRate ?? 8.5) / 100;
   const shipping = subtotal === 0 || discountedSubtotal >= freeShippingThreshold ? 0 : 12;
-  const estimatedTax = discountedSubtotal * 0.08;
+  const estimatedTax = discountedSubtotal * taxRateDecimal;
   const total = discountedSubtotal > 0 ? discountedSubtotal + shipping + estimatedTax : 0;
 
   return (

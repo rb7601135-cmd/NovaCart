@@ -4,9 +4,12 @@ import { motion } from 'framer-motion';
 import { ArrowRight, Layers } from 'lucide-react';
 
 import { categories } from '../data/categories';
-import { products } from '../data/products';
+import { products as staticProducts } from '../data/products';
+import { useCms } from '../hooks/useCms';
 
 export const Categories = () => {
+  const { products: cmsProducts } = useCms();
+  const products = cmsProducts && cmsProducts.length > 0 ? cmsProducts : staticProducts;
   return (
     <div className="bg-neutral-50 min-h-screen py-10 sm:py-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

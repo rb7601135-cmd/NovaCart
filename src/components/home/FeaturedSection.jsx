@@ -1,26 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Sparkles } from 'lucide-react';
 import { ProductCard } from '../common/ProductCard';
 import { QuickViewModal } from '../common/QuickViewModal';
+import { useCms } from '../../hooks/useCms';
 import { getFeaturedProducts } from '../../data/products';
-import { fetchAllProducts } from '../../lib/productService';
 
 export const FeaturedSection = () => {
-  const [featured, setFeatured] = useState(() => getFeaturedProducts());
+  const { products } = useCms();
   const [quickViewProduct, setQuickViewProduct] = useState(null);
 
-  useEffect(() => {
-    let isMounted = true;
-    fetchAllProducts().then((all) => {
-      if (isMounted) {
-        setFeatured(all.filter((p) => p.isFeatured).slice(0, 8));
-      }
-    });
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+  const featured = useMemo(() => {
+    const pool = products && products.length > 0 ? products : getFeaturedProducts();
+    const filtered = pool.filter((p) => p.isFeatured);
+    return filtered.length > 0 ? filtered.slice(0, 8) : pool.slice(0, 8);
+  }, [products]);
 
   return (
     <section className="py-20 bg-white">

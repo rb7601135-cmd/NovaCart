@@ -1,5 +1,8 @@
 import { supabase } from './supabaseClient';
 import { products as localProducts, getProductById as getLocalProductById } from '../data/products';
+import { getStorageItem } from '../utils/storage';
+
+const CMS_PRODUCTS_KEY = 'novacart_cms_products';
 
 // Default placeholder images for products without images
 const DEFAULT_PRODUCT_IMAGES = [
@@ -62,11 +65,14 @@ export const mapSupabaseProduct = (p) => {
 };
 
 /**
- * Fetches all products from Supabase merged with local fallback catalog
+ * Fetches all products from CMS storage merged with Supabase and local fallback catalog
  */
 export const fetchAllProducts = async () => {
+  const storedCms = getStorageItem(CMS_PRODUCTS_KEY, null);
+  const baseProducts = storedCms && storedCms.length > 0 ? storedCms : localProducts;
+
   if (!supabase) {
-    return localProducts;
+    return baseProducts;
   }
 
   try {
@@ -76,32 +82,40 @@ export const fetchAllProducts = async () => {
       .order('id', { ascending: false });
 
     if (error) {
-      console.warn('Supabase fetch error, fallback to local products:', error.message);
-      return localProducts;
+      console.warn('Supabase fetch error, fallback to CMS/local products:', error.message);
+      return baseProducts;
     }
 
     if (data && data.length > 0) {
       const mapped = data.map(mapSupabaseProduct);
-      // Prepend Supabase products before local products
-      const uniqueLocal = localProducts.filter(
-        (lp) => !mapped.some((mp) => mp.id === lp.id)
+      // Prepend any new Supabase products not already present in baseProducts
+      const uniqueBase = baseProducts.filter(
+        (bp) => !mapped.some((mp) => String(mp.id) === String(bp.id))
       );
-      return [...mapped, ...uniqueLocal];
+      return [...mapped, ...uniqueBase];
     }
 
-    return localProducts;
+    return baseProducts;
   } catch (err) {
     console.warn('Error connecting to Supabase products:', err);
-    return localProducts;
+    return baseProducts;
   }
 };
 
 /**
- * Fetches a single product by ID (Supabase first, then local fallback)
+ * Fetches a single product by ID (CMS first, then Supabase, then local fallback)
  */
 export const fetchProductById = async (id) => {
   if (!id) return null;
 
+  // 1. Check CMS products in storage first (reflecting latest admin edits)
+  const storedCms = getStorageItem(CMS_PRODUCTS_KEY, null);
+  if (storedCms && storedCms.length > 0) {
+    const foundCms = storedCms.find((p) => String(p.id) === String(id));
+    if (foundCms) return foundCms;
+  }
+
+  // 2. Check Supabase
   if (supabase) {
     try {
       const { data, error } = await supabase
@@ -118,6 +132,6 @@ export const fetchProductById = async (id) => {
     }
   }
 
-  // Fallback to local catalog
+  // 3. Fallback to local catalog
   return getLocalProductById(id) || null;
 };

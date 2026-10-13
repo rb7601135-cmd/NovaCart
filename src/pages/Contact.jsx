@@ -11,9 +11,11 @@ import {
   HelpCircle
 } from 'lucide-react';
 import { useToast } from '../hooks/useToast';
+import { useCms } from '../hooks/useCms';
 
 export const Contact = () => {
   const { addToast } = useToast();
+  const { settings } = useCms();
 
   const [formData, setFormData] = useState({
     name: '',
@@ -205,10 +207,10 @@ export const Contact = () => {
                 </h3>
                 <p className="text-xs text-neutral-500 mb-2">Direct response within 4 hours</p>
                 <a
-                  href="mailto:support@novacart.com"
+                  href={`mailto:${settings?.supportEmail || 'support@novacart.com'}`}
                   className="text-xs font-bold text-indigo-600 hover:underline"
                 >
-                  support@novacart.com
+                  {settings?.supportEmail || 'support@novacart.com'}
                 </a>
               </div>
             </div>
@@ -222,7 +224,7 @@ export const Contact = () => {
                   Direct Telephone
                 </h3>
                 <p className="text-xs text-neutral-500 mb-2">Mon–Fri: 9:00 AM – 8:00 PM EST</p>
-                <p className="text-xs font-bold text-neutral-900">+1 (800) 492-NOVA</p>
+                <p className="text-xs font-bold text-neutral-900">{settings?.supportPhone || '+1 (800) 492-NOVA'}</p>
               </div>
             </div>
 
@@ -234,9 +236,8 @@ export const Contact = () => {
                 <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-900 mb-1">
                   Flagship Showroom
                 </h3>
-                <p className="text-xs text-neutral-600 leading-relaxed">
-                  540 Madison Avenue, 14th Floor<br />
-                  New York, NY 10022, United States
+                <p className="text-xs text-neutral-600 leading-relaxed whitespace-pre-line">
+                  {settings?.address || '540 Madison Avenue, 14th Floor\nNew York, NY 10022, United States'}
                 </p>
               </div>
             </div>

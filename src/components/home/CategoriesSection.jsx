@@ -3,8 +3,10 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowRight } from 'lucide-react';
 import { categories } from '../../data/categories';
+import { useCms } from '../../hooks/useCms';
 
 export const CategoriesSection = () => {
+  const { products } = useCms();
   return (
     <section className="py-20 bg-neutral-100/60 border-b border-neutral-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -29,35 +31,37 @@ export const CategoriesSection = () => {
 
         {/* Categories Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
-          {categories.map((cat, index) => (
-            <motion.div
-              key={cat.id}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.4, delay: index * 0.08 }}
-            >
-              <Link
-                to={`/shop?category=${cat.id}`}
-                className="group relative block rounded-3xl overflow-hidden aspect-4/3 shadow-md hover:shadow-2xl transition-all duration-300"
+          {categories.map((cat, index) => {
+            const count = (products || []).filter((p) => p.category === cat.id).length || cat.itemCount;
+            return (
+              <motion.div
+                key={cat.id}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.4, delay: index * 0.08 }}
               >
-                {/* Image */}
-                <img
-                  src={cat.image}
-                  alt={cat.name}
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out"
-                />
+                <Link
+                  to={`/shop?category=${cat.id}`}
+                  className="group relative block rounded-3xl overflow-hidden aspect-4/3 shadow-md hover:shadow-2xl transition-all duration-300"
+                >
+                  {/* Image */}
+                  <img
+                    src={cat.image}
+                    alt={cat.name}
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out"
+                  />
 
-                {/* Dark Gradient Overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-neutral-950/90 via-neutral-950/40 to-transparent transition-opacity" />
+                  {/* Dark Gradient Overlay */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-neutral-950/90 via-neutral-950/40 to-transparent transition-opacity" />
 
-                {/* Content */}
-                <div className="absolute inset-0 p-6 sm:p-7 flex flex-col justify-end text-white">
-                  <span className="text-xs font-semibold text-indigo-300 mb-1">
-                    {cat.itemCount} Premium Pieces
-                  </span>
-                  <h3 className="text-xl sm:text-2xl font-bold text-white mb-2 group-hover:translate-x-1 transition-transform">
-                    {cat.name}
+                  {/* Content */}
+                  <div className="absolute inset-0 p-6 sm:p-7 flex flex-col justify-end text-white">
+                    <span className="text-xs font-semibold text-indigo-300 mb-1">
+                      {count} Premium Pieces
+                    </span>
+                    <h3 className="text-xl sm:text-2xl font-bold text-white mb-2 group-hover:translate-x-1 transition-transform">
+                      {cat.name}
                   </h3>
                   <p className="text-xs text-neutral-300 line-clamp-2 mb-3 opacity-90">
                     {cat.description}
@@ -67,8 +71,9 @@ export const CategoriesSection = () => {
                   </div>
                 </div>
               </Link>
-            </motion.div>
-          ))}
+              </motion.div>
+            );
+          })}
         </div>
 
       </div>

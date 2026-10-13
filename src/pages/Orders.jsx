@@ -14,13 +14,36 @@ import {
 
 import { useAuth } from '../hooks/useAuth';
 import { useCart } from '../hooks/useCart';
+import { useCms } from '../hooks/useCms';
 import { useToast } from '../hooks/useToast';
 import { formatPrice } from '../utils/currency';
 
 export const Orders = () => {
-  const { orders } = useAuth();
+  const { orders: authOrders, user } = useAuth();
+  const { orders: cmsOrders } = useCms();
   const { addToCart } = useCart();
   const { addToast } = useToast();
+
+  const orders = React.useMemo(() => {
+    const list = [...authOrders];
+    if (cmsOrders && cmsOrders.length > 0) {
+      cmsOrders.forEach((co) => {
+        const matchesUser =
+          (user?.id && (co.userId === user.id || co.user_id === user.id)) ||
+          (user?.email && (co.userEmail?.toLowerCase() === user.email.toLowerCase() || co.shippingAddress?.email?.toLowerCase() === user.email.toLowerCase()));
+
+        if (matchesUser || !user) {
+          const idx = list.findIndex((o) => o.id === co.id);
+          if (idx === -1) {
+            list.push(co);
+          } else {
+            list[idx] = { ...list[idx], ...co };
+          }
+        }
+      });
+    }
+    return list;
+  }, [authOrders, cmsOrders, user]);
 
   const [activeTrackingOrder, setActiveTrackingOrder] = useState(null);
   const [activeReceiptOrder, setActiveReceiptOrder] = useState(null);

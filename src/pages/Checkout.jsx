@@ -4,13 +4,15 @@ import confetti from 'canvas-confetti';
 import { Lock, ArrowRight } from 'lucide-react';
 import { useCart } from '../hooks/useCart';
 import { useAuth } from '../hooks/useAuth';
+import { useCms } from '../hooks/useCms';
 import { useToast } from '../hooks/useToast';
 import { formatPrice } from '../utils/currency';
 
 export const Checkout = () => {
   const navigate = useNavigate();
   const { cart, subtotal, discountAmount, coupon, shipping, estimatedTax, clearCart } = useCart();
-  const { user, addOrder } = useAuth();
+  const { user, addOrder: authAddOrder } = useAuth();
+  const { addOrder: cmsAddOrder } = useCms();
   const { addToast } = useToast();
 
 
@@ -112,8 +114,8 @@ export const Checkout = () => {
         // Confetti optional
       }
 
-      // Record Order in AuthContext (persists locally and syncs to Supabase)
-      const newOrder = await addOrder({
+      // Build complete order payload
+      const orderPayload = {
         items: cart.map((i) => ({
           id: i.id,
           name: i.name,
@@ -139,14 +141,29 @@ export const Checkout = () => {
         shipping: shippingFee,
         discount: discountAmount,
         tax: estimatedTax,
-        total: grandTotal
-      });
+        total: grandTotal,
+        userId: user?.id || null,
+        userEmail: user?.email || formData.email
+      };
+
+      // Record Order in CMS Context (updates CMS orders, customers, metrics, Supabase & localStorage)
+      let newOrder = null;
+      if (cmsAddOrder) {
+        newOrder = await cmsAddOrder(orderPayload);
+      }
+
+      // Record Order in AuthContext
+      if (authAddOrder) {
+        await authAddOrder(newOrder || orderPayload);
+      }
+
+      const orderRefId = newOrder?.id || `NC-${Math.floor(10000 + Math.random() * 90000)}`;
 
       // Clear shopping bag
       clearCart();
       setIsSubmitting(false);
 
-      addToast(`Order #${newOrder.id} confirmed! Thank you for choosing NovaCart.`, 'success', 5000);
+      addToast(`Order #${orderRefId} confirmed! Thank you for choosing NovaCart.`, 'success', 5000);
       navigate('/orders');
     }, 1200);
   };

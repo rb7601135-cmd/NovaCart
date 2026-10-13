@@ -3,7 +3,7 @@ import { products as initialLocalProducts } from '../data/products';
 import { initialOrders } from '../data/orders';
 import { getStorageItem, setStorageItem } from '../utils/storage';
 import { supabase } from '../lib/supabaseClient';
-import { fetchAllProducts } from '../lib/productService';
+import { mapSupabaseProduct } from '../lib/productService';
 
 const CMS_PRODUCTS_KEY = 'novacart_cms_products';
 const ORDERS_KEY = 'novacart_orders';
@@ -116,7 +116,7 @@ export const CmsProvider = ({ children }) => {
     getStorageItem(CMS_PRODUCTS_KEY, initialLocalProducts)
   );
 
-  // 2. Orders State (Shared with storefront)
+  // 2. Orders State (Shared with storefront & synced with Supabase)
   const [orders, setOrders] = useState(() =>
     getStorageItem(ORDERS_KEY, initialOrders)
   );
@@ -148,29 +148,139 @@ export const CmsProvider = ({ children }) => {
     setStorageItem(CMS_SETTINGS_KEY, settings);
   }, [settings]);
 
-  // Load latest from Supabase if connected
+  // Load latest products from Supabase without overwriting local CMS edits
   useEffect(() => {
-    async function loadSupabaseData() {
+    async function loadSupabaseProducts() {
       if (!supabase) return;
       try {
-        const remoteProducts = await fetchAllProducts();
-        if (remoteProducts && remoteProducts.length > 0) {
+        const { data, error } = await supabase.from('products').select('*');
+        if (!error && data && data.length > 0) {
+          const mappedRemote = data.map(mapSupabaseProduct);
           setProducts((prev) => {
-            // merge with any local edits
-            const merged = [...remoteProducts];
-            prev.forEach((localP) => {
-              if (!merged.some((m) => m.id === localP.id)) {
-                merged.push(localP);
+            const currentMap = new Map(prev.map((p) => [String(p.id), p]));
+            // Add any remote product from Supabase that isn't already present in current catalog
+            mappedRemote.forEach((rp) => {
+              if (!currentMap.has(String(rp.id))) {
+                currentMap.set(String(rp.id), rp);
               }
             });
-            return merged;
+            return Array.from(currentMap.values());
           });
         }
       } catch (err) {
-        console.warn('CmsProvider: Supabase sync warning:', err);
+        console.warn('CmsProvider: Supabase products sync warning:', err);
       }
     }
-    loadSupabaseData();
+    loadSupabaseProducts();
+  }, []);
+
+  // Load all latest orders from Supabase (including orders placed after sign-in)
+  useEffect(() => {
+    async function loadSupabaseOrders() {
+      if (!supabase) return;
+      try {
+        const { data, error } = await supabase
+          .from('orders')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (!error && data && data.length > 0) {
+          const mappedRemoteOrders = data.map((o) => ({
+            id: o.id,
+            date: new Date(o.created_at || Date.now()).toLocaleDateString('en-US', {
+              month: 'short',
+              day: '2-digit',
+              year: 'numeric'
+            }),
+            status: o.status || 'Processing',
+            statusStep: o.status === 'Delivered' ? 4 : o.status === 'Shipped' ? 3 : o.status === 'Processing' ? 2 : 1,
+            trackingNumber: o.tracking_number || `TRK-${Math.floor(100000000 + Math.random() * 900000000)}US`,
+            carrier: o.carrier || 'NovaCart Express',
+            estimatedDelivery: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', {
+              month: 'short',
+              day: '2-digit',
+              year: 'numeric'
+            }),
+            items: o.items || [],
+            shippingAddress: o.shipping_address || {},
+            shippingMethod: o.shipping_method || 'Standard Courier',
+            paymentMethod: o.payment_method || 'Credit Card',
+            subtotal: Number(o.subtotal || 0),
+            shipping: Number(o.shipping || 0),
+            discount: Number(o.discount || 0),
+            tax: Number(o.tax || 0),
+            total: Number(o.total || 0),
+            userId: o.user_id,
+            userEmail: o.user_email
+          }));
+
+          setOrders((prev) => {
+            const combined = [...prev];
+            mappedRemoteOrders.forEach((ro) => {
+              const existingIdx = combined.findIndex((co) => co.id === ro.id);
+              if (existingIdx === -1) {
+                combined.unshift(ro);
+              } else {
+                combined[existingIdx] = { ...ro, ...combined[existingIdx] };
+              }
+            });
+            return combined;
+          });
+
+          // Also populate customer analytics from remote orders
+          setCustomers((prev) => {
+            const customerMap = new Map(prev.map((c) => [c.email?.toLowerCase(), c]));
+            mappedRemoteOrders.forEach((o) => {
+              const email = (o.userEmail || o.shippingAddress?.email || '').toLowerCase();
+              if (email) {
+                if (customerMap.has(email)) {
+                  const existing = customerMap.get(email);
+                  customerMap.set(email, {
+                    ...existing,
+                    ordersCount: Math.max(existing.ordersCount || 1, 1),
+                    totalSpent: Math.max(existing.totalSpent || 0, Number(o.total || 0))
+                  });
+                } else {
+                  const name = o.shippingAddress?.fullName || email.split('@')[0];
+                  customerMap.set(email, {
+                    id: `cust-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+                    name,
+                    email,
+                    phone: o.shippingAddress?.phone || '',
+                    avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=4f46e5&color=ffffff&bold=true&rounded=true`,
+                    city: o.shippingAddress?.city || 'San Francisco',
+                    country: o.shippingAddress?.country || 'United States',
+                    joinDate: o.date || 'Recently',
+                    tier: Number(o.total || 0) > 500 ? 'Gold VIP' : 'Regular',
+                    status: 'Active',
+                    ordersCount: 1,
+                    totalSpent: Number(o.total || 0)
+                  });
+                }
+              }
+            });
+            return Array.from(customerMap.values());
+          });
+        }
+      } catch (err) {
+        console.warn('CmsProvider: Supabase orders sync warning:', err);
+      }
+    }
+    loadSupabaseOrders();
+  }, []);
+
+  // Listen for real-time events across windows & components
+  useEffect(() => {
+    const handleOrderCreated = (e) => {
+      if (e.detail) {
+        setOrders((prev) => {
+          if (prev.some((o) => o.id === e.detail.id)) return prev;
+          return [e.detail, ...prev];
+        });
+      }
+    };
+    window.addEventListener('novacart:order_created', handleOrderCreated);
+    return () => window.removeEventListener('novacart:order_created', handleOrderCreated);
   }, []);
 
   // --- PRODUCT ACTIONS ---
@@ -190,28 +300,24 @@ export const CmsProvider = ({ children }) => {
 
     setProducts((prev) => [newProduct, ...prev]);
 
-    // Try Supabase insert if available
+    // Resilient Supabase insert
     if (supabase) {
       try {
         await supabase.from('products').insert([
           {
             name: newProduct.name,
-            category: newProduct.category,
             price: newProduct.price,
-            old_price: newProduct.oldPrice,
-            stock: newProduct.stock,
-            image: newProduct.image,
-            description: newProduct.description,
-            is_featured: newProduct.isFeatured ?? true,
-            is_new: newProduct.isNew ?? true,
-            is_bestseller: newProduct.isBestSeller ?? false,
-            badge: newProduct.badge || 'New'
+            description: newProduct.description
           }
         ]);
       } catch (err) {
         console.warn('Supabase product insert error:', err);
       }
     }
+
+    try {
+      window.dispatchEvent(new CustomEvent('novacart:cms_products_updated', { detail: newProduct }));
+    } catch {}
 
     return newProduct;
   };
@@ -221,27 +327,25 @@ export const CmsProvider = ({ children }) => {
       prev.map((p) => (String(p.id) === String(id) ? { ...p, ...updatedFields } : p))
     );
 
-    // Try Supabase update if available
+    // Resilient Supabase update
     if (supabase) {
       try {
         await supabase
           .from('products')
           .update({
             name: updatedFields.name,
-            category: updatedFields.category,
             price: updatedFields.price,
-            stock: updatedFields.stock,
-            image: updatedFields.image,
-            description: updatedFields.description,
-            is_featured: updatedFields.isFeatured,
-            is_new: updatedFields.isNew,
-            is_bestseller: updatedFields.isBestSeller
+            description: updatedFields.description
           })
           .eq('id', id);
       } catch (err) {
         console.warn('Supabase product update error:', err);
       }
     }
+
+    try {
+      window.dispatchEvent(new CustomEvent('novacart:cms_products_updated', { detail: { id, updatedFields } }));
+    } catch {}
   };
 
   const deleteProduct = async (id) => {
@@ -254,20 +358,117 @@ export const CmsProvider = ({ children }) => {
         console.warn('Supabase product delete error:', err);
       }
     }
+
+    try {
+      window.dispatchEvent(new CustomEvent('novacart:cms_products_updated', { detail: { id, deleted: true } }));
+    } catch {}
   };
 
   // --- ORDER ACTIONS ---
-  const updateOrderStatus = (orderId, newStatus, extraDetails = {}) => {
+  const addOrder = async (orderData) => {
+    const orderId = orderData.id || `NC-${Math.floor(10000 + Math.random() * 90000)}`;
+    const newOrder = {
+      id: orderId,
+      date: new Date().toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }),
+      status: orderData.status || 'Processing',
+      statusStep: 1,
+      trackingNumber: orderData.trackingNumber || `TRK-${Math.floor(100000000 + Math.random() * 900000000)}US`,
+      carrier: orderData.carrier || 'NovaCart Express',
+      estimatedDelivery: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', {
+        month: 'short',
+        day: '2-digit',
+        year: 'numeric'
+      }),
+      ...orderData
+    };
+
+    // 1. Prepend to CMS state
+    setOrders((prev) => [newOrder, ...prev.filter((o) => o.id !== newOrder.id)]);
+
+    // 2. Persist to shared storage immediately
+    const existingStoredOrders = getStorageItem(ORDERS_KEY, []);
+    const updatedStored = [newOrder, ...existingStoredOrders.filter((o) => o.id !== newOrder.id)];
+    setStorageItem(ORDERS_KEY, updatedStored);
+
+    // 3. Update customer list in CMS
+    const customerEmail = newOrder.shippingAddress?.email || newOrder.userEmail;
+    const customerName = newOrder.shippingAddress?.fullName || 'Valued Customer';
+    if (customerEmail) {
+      setCustomers((prev) => {
+        const existingIdx = prev.findIndex((c) => c.email?.toLowerCase() === customerEmail.toLowerCase());
+        if (existingIdx > -1) {
+          const updatedList = [...prev];
+          const curr = updatedList[existingIdx];
+          updatedList[existingIdx] = {
+            ...curr,
+            ordersCount: (curr.ordersCount || 0) + 1,
+            totalSpent: (curr.totalSpent || 0) + Number(newOrder.total || 0)
+          };
+          return updatedList;
+        } else {
+          const newCust = {
+            id: `cust-${Date.now()}`,
+            name: customerName,
+            email: customerEmail,
+            phone: newOrder.shippingAddress?.phone || '',
+            avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(customerName)}&background=4f46e5&color=ffffff&bold=true&rounded=true`,
+            city: newOrder.shippingAddress?.city || 'San Francisco',
+            country: newOrder.shippingAddress?.country || 'United States',
+            joinDate: new Date().toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }),
+            tier: Number(newOrder.total) > 500 ? 'Gold VIP' : 'Regular',
+            status: 'Active',
+            ordersCount: 1,
+            totalSpent: Number(newOrder.total || 0)
+          };
+          return [newCust, ...prev];
+        }
+      });
+    }
+
+    // 4. Save to Supabase orders table
+    if (supabase) {
+      try {
+        await supabase.from('orders').upsert({
+          id: newOrder.id,
+          user_id: newOrder.userId || null,
+          user_email: customerEmail || null,
+          items: newOrder.items,
+          shipping_address: newOrder.shippingAddress,
+          shipping_method: newOrder.shippingMethod,
+          payment_method: newOrder.paymentMethod,
+          subtotal: newOrder.subtotal,
+          shipping: newOrder.shipping,
+          discount: newOrder.discount,
+          tax: newOrder.tax,
+          total: newOrder.total,
+          status: newOrder.status,
+          created_at: new Date().toISOString()
+        });
+      } catch (err) {
+        console.warn('Supabase orders upsert note:', err);
+      }
+    }
+
+    // 5. Broadcast order created event
+    try {
+      window.dispatchEvent(new CustomEvent('novacart:order_created', { detail: newOrder }));
+    } catch {}
+
+    return newOrder;
+  };
+
+  const updateOrderStatus = async (orderId, newStatus, extraDetails = {}) => {
+    const stepMap = {
+      Pending: 1,
+      Processing: 2,
+      Shipped: 3,
+      Delivered: 4,
+      Cancelled: 0
+    };
+
     setOrders((prev) =>
       prev.map((o) => {
         if (o.id === orderId) {
-          const stepMap = {
-            Pending: 1,
-            Processing: 2,
-            Shipped: 3,
-            Delivered: 4,
-            Cancelled: 0
-          };
           return {
             ...o,
             status: newStatus,
@@ -278,10 +479,56 @@ export const CmsProvider = ({ children }) => {
         return o;
       })
     );
+
+    // Sync any user-specific local storage entries
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith('novacart_orders_')) {
+          const userOrders = getStorageItem(k, []);
+          const updated = userOrders.map((uo) =>
+            uo.id === orderId
+              ? { ...uo, status: newStatus, statusStep: stepMap[newStatus] ?? uo.statusStep, ...extraDetails }
+              : uo
+          );
+          setStorageItem(k, updated);
+        }
+      }
+    } catch {}
+
+    // Update in Supabase
+    if (supabase) {
+      try {
+        await supabase
+          .from('orders')
+          .update({
+            status: newStatus
+          })
+          .eq('id', orderId);
+      } catch (err) {
+        console.warn('Supabase update order status error:', err);
+      }
+    }
+
+    try {
+      window.dispatchEvent(
+        new CustomEvent('novacart:order_updated', {
+          detail: { orderId, newStatus, extraDetails }
+        })
+      );
+    } catch {}
   };
 
-  const deleteOrder = (orderId) => {
+  const deleteOrder = async (orderId) => {
     setOrders((prev) => prev.filter((o) => o.id !== orderId));
+
+    if (supabase) {
+      try {
+        await supabase.from('orders').delete().eq('id', orderId);
+      } catch (err) {
+        console.warn('Supabase delete order error:', err);
+      }
+    }
   };
 
   // --- CUSTOMER ACTIONS ---
@@ -297,10 +544,15 @@ export const CmsProvider = ({ children }) => {
 
   // --- SETTINGS ACTIONS ---
   const updateSettings = (newSettings) => {
-    setSettings((prev) => ({
-      ...prev,
-      ...newSettings
-    }));
+    setSettings((prev) => {
+      const merged = { ...prev, ...newSettings };
+      setStorageItem(CMS_SETTINGS_KEY, merged);
+      return merged;
+    });
+
+    try {
+      window.dispatchEvent(new CustomEvent('novacart:cms_settings_updated', { detail: newSettings }));
+    } catch {}
   };
 
   // Format currency helper aware of CMS settings
@@ -338,6 +590,7 @@ export const CmsProvider = ({ children }) => {
         addProduct,
         updateProduct,
         deleteProduct,
+        addOrder,
         updateOrderStatus,
         deleteOrder,
         updateCustomer,

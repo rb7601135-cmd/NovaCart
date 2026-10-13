@@ -27,6 +27,7 @@ const ProductDetailContent = ({ product }) => {
   const { addToCart } = useCart();
   const { isInWishlist, toggleWishlist } = useWishlist();
   const { addToast } = useToast();
+  const { products: allCmsProducts } = useCms();
 
   const [selectedImage, setSelectedImage] = useState(product.image);
   const [selectedOption, setSelectedOption] = useState(
@@ -61,7 +62,16 @@ const ProductDetailContent = ({ product }) => {
 
   const isFavorited = isInWishlist(product.id);
   const images = product.images && product.images.length > 0 ? product.images : [product.image];
-  const related = getRelatedProducts(product.id, product.category, 4);
+  const related = React.useMemo(() => {
+    if (allCmsProducts && allCmsProducts.length > 0) {
+      const sameCat = allCmsProducts.filter(
+        (p) => p.category === product.category && String(p.id) !== String(product.id)
+      );
+      if (sameCat.length > 0) return sameCat.slice(0, 4);
+      return allCmsProducts.filter((p) => String(p.id) !== String(product.id)).slice(0, 4);
+    }
+    return getRelatedProducts(product.id, product.category, 4);
+  }, [allCmsProducts, product.id, product.category]);
 
   const handleAddToCart = () => {
     addToCart(product, quantity, selectedOption);
@@ -517,9 +527,9 @@ export const ProductDetails = () => {
     let isMounted = true;
     async function loadProduct() {
       setLoading(true);
-      let prod = await fetchProductById(id);
-      if (!prod && cmsProducts) {
-        prod = cmsProducts.find((p) => String(p.id) === String(id)) || null;
+      let prod = cmsProducts?.find((p) => String(p.id) === String(id)) || null;
+      if (!prod) {
+        prod = await fetchProductById(id);
       }
       if (isMounted) {
         setProduct(prod);

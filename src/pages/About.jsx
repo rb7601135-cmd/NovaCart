@@ -7,9 +7,12 @@ import {
   Globe2,
   ArrowRight
 } from 'lucide-react';
-
+import { useCms } from '../hooks/useCms';
 
 export const About = () => {
+  const { settings } = useCms();
+  const storeName = settings?.storeName || 'NovaCart';
+
   return (
     <div className="bg-neutral-50 min-h-screen py-10 sm:py-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -18,7 +21,7 @@ export const About = () => {
         <div className="relative rounded-3xl overflow-hidden bg-radial from-neutral-900 via-neutral-950 to-black text-white p-8 sm:p-16 lg:p-20 border border-neutral-800 shadow-2xl mb-16 text-center">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 text-xs font-bold mb-4 border border-indigo-500/30">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>The NovaCart Heritage</span>
+            <span>The {storeName} Heritage</span>
           </div>
 
           <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-white tracking-tight mb-6 max-w-3xl mx-auto leading-tight">
@@ -26,7 +29,7 @@ export const About = () => {
           </h1>
 
           <p className="text-base sm:text-lg text-neutral-300 max-w-2xl mx-auto leading-relaxed mb-10">
-            NovaCart was founded on a simple conviction: modern consumers deserve timeless craftsmanship, transparent ethical sourcing, and uncompromising aesthetic delight.
+            {storeName} was founded on a simple conviction: modern consumers deserve timeless craftsmanship, transparent ethical sourcing, and uncompromising aesthetic delight.
           </p>
 
           {/* Quick Metrics */}
