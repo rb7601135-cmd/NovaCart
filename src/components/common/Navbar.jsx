@@ -17,25 +17,21 @@ import { useCart } from '../../hooks/useCart';
 import { useWishlist } from '../../hooks/useWishlist';
 import { useAuth } from '../../hooks/useAuth';
 import { useCms } from '../../hooks/useCms';
-import { products as fallbackProducts } from '../../data/products';
-import { formatPrice } from '../../utils/currency';
+import { SearchOverlay } from './SearchOverlay';
 
 export const Navbar = () => {
   const { totalItems, openCartDrawer } = useCart();
   const { wishlistCount } = useWishlist();
   const { user, isAuthenticated, logout } = useAuth();
-  const { settings, products: cmsProducts } = useCms();
-  const products = cmsProducts && cmsProducts.length > 0 ? cmsProducts : fallbackProducts;
+  const { settings } = useCms();
   const navigate = useNavigate();
   const location = useLocation();
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [isSearchOverlayOpen, setIsSearchOverlayOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
 
-  const searchRef = useRef(null);
   const accountRef = useRef(null);
   const prevPathRef = useRef(location.pathname);
 
@@ -54,10 +50,28 @@ export const Navbar = () => {
       prevPathRef.current = location.pathname;
       setIsMobileMenuOpen(false);
       setIsAccountMenuOpen(false);
-      setIsSearchFocused(false);
+      setIsSearchOverlayOpen(false);
     }
   }, [location.pathname]);
 
+  // Global search shortcut: Ctrl+K or Cmd+K or "/"
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
+        e.preventDefault();
+        setIsSearchOverlayOpen(true);
+      } else if (
+        e.key === '/' &&
+        !['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName) &&
+        !document.activeElement?.isContentEditable
+      ) {
+        e.preventDefault();
+        setIsSearchOverlayOpen(true);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // Secret admin shortcut: Ctrl + Shift + A (or Cmd + Shift + A)
   useEffect(() => {
@@ -71,12 +85,9 @@ export const Navbar = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [navigate]);
 
-  // Click outside listener for search & account dropdown
+  // Click outside listener for account dropdown
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (searchRef.current && !searchRef.current.contains(e.target)) {
-        setIsSearchFocused(false);
-      }
       if (accountRef.current && !accountRef.current.contains(e.target)) {
         setIsAccountMenuOpen(false);
       }
@@ -84,26 +95,6 @@ export const Navbar = () => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-
-  // Filter search suggestions
-  const searchResults = searchQuery.trim()
-    ? products
-        .filter(
-          (p) =>
-            p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            p.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            p.categoryName?.toLowerCase().includes(searchQuery.toLowerCase())
-        )
-        .slice(0, 5)
-    : [];
-
-  const handleSearchSubmit = (e) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      navigate(`/shop?search=${encodeURIComponent(searchQuery.trim())}`);
-      setIsSearchFocused(false);
-    }
-  };
 
   const navLinks = [
     { name: 'Home', path: '/' },
@@ -200,88 +191,36 @@ export const Navbar = () => {
               ))}
             </div>
 
-            {/* Search Input Bar with Autocomplete Dropdown */}
-            <div ref={searchRef} className="relative flex-1 max-w-xs xl:max-w-sm hidden sm:block">
-              <form onSubmit={handleSearchSubmit} className="relative">
-                <input
-                  type="text"
-                  placeholder="Search products, brands, styles..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onFocus={() => setIsSearchFocused(true)}
-                  className="w-full pl-9 pr-4 py-2 bg-neutral-100/80 hover:bg-neutral-100 focus:bg-white text-xs sm:text-sm rounded-xl border border-transparent focus:border-indigo-300 focus:ring-3 focus:ring-indigo-100 outline-hidden transition-all placeholder:text-neutral-600"
-                />
-                <Search className="w-4 h-4 text-neutral-600 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                {searchQuery && (
-                  <button
-                    type="button"
-                    onClick={() => setSearchQuery('')}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </form>
+            {/* Desktop Search Trigger Bar */}
+            <button
+              type="button"
+              onClick={() => setIsSearchOverlayOpen(true)}
+              className="relative flex-1 max-w-xs xl:max-w-sm hidden sm:flex items-center justify-between pl-3.5 pr-2.5 py-2 bg-neutral-100/90 hover:bg-neutral-100 text-neutral-500 hover:text-neutral-800 rounded-xl border border-neutral-200/80 hover:border-neutral-300 transition-all text-xs sm:text-sm group cursor-pointer shadow-2xs"
+              aria-label="Open search catalog"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <Search className="w-4 h-4 text-neutral-400 group-hover:text-indigo-600 transition-colors shrink-0" />
+                <span className="truncate text-neutral-500 group-hover:text-neutral-700">
+                  Search products, styles...
+                </span>
+              </div>
+              <kbd className="hidden md:inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-semibold text-neutral-400 bg-white border border-neutral-200/90 rounded shadow-xs shrink-0 group-hover:border-neutral-300">
+                <span className="text-xs">⌘</span>K
+              </kbd>
+            </button>
 
-              {/* Instant Search Results Dropdown */}
-              <AnimatePresence>
-                {isSearchFocused && searchQuery.trim() && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 10 }}
-                    className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-neutral-200 overflow-hidden z-50 p-2"
-                  >
-                    <div className="text-[11px] font-bold text-neutral-600 uppercase px-3 py-1.5 border-b border-neutral-100">
-                      Product Matches ({searchResults.length})
-                    </div>
-                    {searchResults.length > 0 ? (
-                      <div className="divide-y divide-neutral-100">
-                        {searchResults.map((item) => (
-                          <Link
-                            key={item.id}
-                            to={`/product/${item.id}`}
-                            onClick={() => setIsSearchFocused(false)}
-                            className="flex items-center gap-3 p-2.5 hover:bg-neutral-50 rounded-xl transition-colors group"
-                          >
-                            <img
-                              src={item.image}
-                              alt={item.name}
-                              className="w-10 h-10 rounded-lg object-cover bg-neutral-100 shrink-0"
-                            />
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-semibold text-neutral-900 group-hover:text-indigo-600 truncate">
-                                {item.name}
-                              </p>
-                              <p className="text-[11px] text-neutral-600 capitalize">
-                                {item.categoryName || item.category}
-                              </p>
-                            </div>
-                            <span className="text-xs font-bold text-neutral-900">
-                              {formatPrice(item.price)}
-                            </span>
-                          </Link>
-                        ))}
-                        <Link
-                          to={`/shop?search=${encodeURIComponent(searchQuery)}`}
-                          onClick={() => setIsSearchFocused(false)}
-                          className="flex items-center justify-center gap-1.5 p-2 text-xs font-bold text-indigo-600 hover:bg-indigo-50 rounded-xl transition-colors mt-1"
-                        >
-                          View all results in Shop <ArrowRight className="w-3.5 h-3.5" />
-                        </Link>
-                      </div>
-                    ) : (
-                      <div className="p-4 text-center text-xs text-neutral-500">
-                        No products found matching &ldquo;{searchQuery}&rdquo;.
-                      </div>
-                    )}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-
-            {/* Action Buttons: Wishlist, Cart, Account */}
+            {/* Action Buttons: Search (Mobile), Wishlist, Cart, Account */}
             <div className="flex items-center gap-1.5 sm:gap-2.5">
+              
+              {/* Mobile Search Button */}
+              <button
+                type="button"
+                onClick={() => setIsSearchOverlayOpen(true)}
+                className="sm:hidden p-2.5 text-neutral-700 hover:text-indigo-600 hover:bg-neutral-100 rounded-xl transition-colors cursor-pointer"
+                aria-label="Open search catalog"
+              >
+                <Search className="w-5 h-5" />
+              </button>
               
               {/* Wishlist Link */}
               <Link
@@ -466,16 +405,23 @@ export const Navbar = () => {
               </div>
 
               {/* Mobile Search Input */}
-              <form onSubmit={handleSearchSubmit} className="mt-5 relative">
-                <input
-                  type="text"
-                  placeholder="Search products..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2.5 bg-neutral-100 text-sm rounded-xl border border-neutral-200 outline-hidden"
-                />
-                <Search className="w-4 h-4 text-neutral-600 absolute left-3 top-1/2 -translate-y-1/2" />
-              </form>
+              {/* Mobile Search Trigger */}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  setIsSearchOverlayOpen(true);
+                }}
+                className="mt-5 w-full flex items-center justify-between px-3.5 py-2.5 bg-neutral-100 hover:bg-neutral-200/70 text-neutral-600 rounded-xl border border-neutral-200 transition-colors text-sm text-left cursor-pointer"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <Search className="w-4 h-4 text-neutral-500 shrink-0" />
+                  <span className="truncate text-neutral-600 font-medium">Search catalog...</span>
+                </div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 bg-white px-2 py-0.5 rounded border border-neutral-200">
+                  Open
+                </span>
+              </button>
 
               {/* Navigation Links */}
               <div className="flex flex-col gap-1 mt-6">
@@ -547,6 +493,12 @@ export const Navbar = () => {
           </div>
         )}
       </AnimatePresence>
+
+      {/* Full Black Search Overlay */}
+      <SearchOverlay
+        isOpen={isSearchOverlayOpen}
+        onClose={() => setIsSearchOverlayOpen(false)}
+      />
     </header>
   );
 };
